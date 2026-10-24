@@ -55,6 +55,12 @@ set(XBOXRECOMP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../xboxrecomp" CACHE PATH
 # it. src/main.c sets the defaults.
 set(XBOXRECOMP_ENHANCE ON CACHE BOOL
     "Build the enhancements layer (enhance.toml, RECOMP_RENDER_SCALE, ...)" FORCE)
+# The settings overlay (Back+Start or F1: render scale, anti-aliasing,
+# anisotropic filtering, ...), as in Takedawn. Dear ImGui over the SDL2 +
+# Vulkan host's present; the GDI + D3D11 host has none.
+if(BLINX_WIN_VULKAN)
+    set(XBOXRECOMP_OVERLAY ON CACHE BOOL "Build the in-game settings overlay" FORCE)
+endif()
 
 add_subdirectory(${XBOXRECOMP_DIR} ${CMAKE_BINARY_DIR}/xboxrecomp)
 

@@ -9,7 +9,28 @@ Captures dans `docs/screenshots/`.
 Non vérifié : la manette (Start à l'écran titre), le son, le vrai gameplay,
 les vidéos Sofdec (sautées, voir plus bas).
 
-## Construire et lancer (hôte GDI + Direct3D 11)
+## Construire et lancer (hôte SDL2 + Vulkan, avec le menu)
+
+La build principale. Le menu de réglages (overlay Dear ImGui de Takedawn,
+thème vert Xbox `RECOMP_OVERLAY_THEME=xbox`) s'ouvre avec Select+Start ou F1 :
+résolution interne, FXAA/SMAA, netteté, anisotrope, LOD, agrandissement des
+textures ; il écrit `settings.toml`. Le correctif de profondeur de champ
+(zeta lu comme texture) existe dans les deux backends.
+
+```bash
+BUILD_DIR=build/mingw bash tools/win/build-mingw.sh -DBLINX_WIN_VULKAN=ON \
+    -DCMAKE_C_FLAGS="-gline-tables-only -I$(cygpath -m ../xboxrecomp/src/kernel)"
+cd build/mingw && ./blinx_recomp.exe >stdout.txt 2>stderr.txt
+```
+
+Captures : `RECOMP_FB_DUMP=dir/ RECOMP_FB_DUMP_FLIPS=n` (image du jeu),
+`RECOMP_WINDOW_SHOT=flips RECOMP_WINDOW_SHOT_PREFIX=dir/x` (fenêtre, menu
+compris), `RECOMP_OVERLAY=open` (menu ouvert au démarrage). Profilage :
+`BLINX_NO_MOVIES=1` (vidéos sautées), `BLINX_STACK_SAMPLE_MS=10` (piles à
+intervalles aléatoires, pas calés sur le timer du vblank), `RECOMP_FLIP_LOG=1`
+(`[PB-PERF]` : temps du walker, kicks et leur attente par image).
+
+## Construire et lancer (hôte GDI + Direct3D 11, sans menu)
 
 ```bash
 # Régénérer le C depuis default.xbe (désassemblage complet ~8 min + recomp ~2 min)
@@ -25,8 +46,6 @@ cd build/d3d11 && ./blinx_recomp.exe >stdout.txt 2>stderr.txt
 ```
 
 `build/d3d11/game` est une jonction vers `game_files` (ISO décompressée).
-La build SDL2 + Vulkan (`build/mingw`, `-DBLINX_WIN_VULKAN=ON`) existe mais
-n'est pas celle qui a été déboguée.
 
 Variables utiles : `RECOMP_STUB_LOG=1` (chaque stub de cible non résolue
 atteint, une fois), `RECOMP_FB_DUMP=prefix` + `RECOMP_FB_WINDOW_DUMP_EVERY=n`

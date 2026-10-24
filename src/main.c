@@ -531,13 +531,32 @@ static void sample_thread(DWORD tid)
 
 static DWORD WINAPI stack_sampler(LPVOID arg)
 {
-    DWORD secs = (DWORD)(uintptr_t)arg, me = GetCurrentThreadId();
+    DWORD ms = (DWORD)(uintptr_t)arg, me = GetCurrentThreadId();
+    LARGE_INTEGER f;
+    uint32_t rng = 12345u;
 
+    QueryPerformanceFrequency(&f);
     for (;;) {
         HANDLE snap;
         THREADENTRY32 te;
 
-        Sleep(secs * 1000);
+        if (ms >= 1000) {
+            Sleep(ms);
+        } else {
+            /* A spin to a random point in [ms/2, 3ms/2): a Sleep wakes on
+             * the system timer tick, the one the emulated vblank runs on,
+             * so every sample caught the threads at the same moment of
+             * the frame (the vblank wait) and never the GPU's replay. */
+            LARGE_INTEGER t0, t;
+            uint64_t span;
+            rng = rng * 1664525u + 1013904223u;
+            span = (uint64_t)f.QuadPart * (ms / 2 + (rng >> 8) % (ms ? ms : 1)) / 1000u;
+            QueryPerformanceCounter(&t0);
+            do {
+                YieldProcessor();
+                QueryPerformanceCounter(&t);
+            } while ((uint64_t)(t.QuadPart - t0.QuadPart) < span);
+        }
         snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
         if (snap == INVALID_HANDLE_VALUE)
             continue;
@@ -569,8 +588,12 @@ static DWORD WINAPI diag_table_thread(LPVOID arg)
         Sleep(5000);
         /* The indirect-branch target record, every 30 s: the run is ended
          * by killing the process, so atexit never fires. */
+#ifdef RECOMP_ICALL_FEEDBACK
         if ((++tick % 6) == 0)
             recomp_icall_feedback_dump("icall.txt");
+#else
+        (void)tick;
+#endif
         if (!g_xbox_mem_offset)
             continue;
         fprintf(stderr, "  [DIAG] cb table:");
@@ -679,6 +702,12 @@ int main(int argc, char **argv)
      * lock the emulated vblank to the display, as Takedawn does. */
     env_default("RECOMP_PB_BACKEND", "vulkan");
     env_default("RECOMP_VBLANK_SYNC", "display");
+    /* Internal resolution 2x (1280x960) to start with; the settings overlay
+     * (Back+Start, F1) changes it, and the window can be resized. */
+    env_default("RECOMP_RENDER_SCALE", "2");
+    /* The settings overlay in the original Xbox dashboard's green, not in
+     * Burnout 3's navy (the toolkit's default theme comes from Takedawn). */
+    env_default("RECOMP_OVERLAY_THEME", "xbox");
 #else
     /* GDI + D3D11 host: the game window (fb_present.c) is opt-in, and
      * without it the title runs with nothing on screen. */
@@ -705,10 +734,15 @@ int main(int argc, char **argv)
     if (getenv("BLINX_DIAG_TABLE"))
         CloseHandle(CreateThread(NULL, 0, diag_table_thread, NULL, 0, NULL));
     {
+        /* BLINX_STACK_SAMPLE=seconds, or BLINX_STACK_SAMPLE_MS=ms for a
+         * profile (counted afterwards from the [SAMPLE] lines). */
         const char *s = getenv("BLINX_STACK_SAMPLE");
-        if (s && atoi(s) > 0)
+        const char *m = getenv("BLINX_STACK_SAMPLE_MS");
+        DWORD ms = m && atoi(m) > 0 ? (DWORD)atoi(m)
+                 : s && atoi(s) > 0 ? (DWORD)atoi(s) * 1000u : 0;
+        if (ms)
             CloseHandle(CreateThread(NULL, 0, stack_sampler,
-                                     (LPVOID)(uintptr_t)atoi(s), 0, NULL));
+                                     (LPVOID)(uintptr_t)ms, 0, NULL));
     }
 
     /* Unbuffered output for immediate visibility during debugging */
