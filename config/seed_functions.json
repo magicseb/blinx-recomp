@@ -1,0 +1,267 @@
+[
+ {
+  "start": "0x0013B6F0",
+  "observed": true,
+  "note": "D3D8 vblank ISR: KeConnectInterrupt vector 3 at runtime. Reached only through the pointer handed to KeInitializeInterrupt, so disasm never found it; without it the runtime reports 'ISR not callable' and the title waits for ever on the device KEVENT at device+0x2554 after its first frame."
+ },
+ {
+  "start": "0x000A06F0",
+  "observed": true,
+  "note": "Vertical-blank callback the title registers with D3D (ctx+0x190, called from the vblank DPC sub_0013B8E0). Unresolved, its ICALL stub popped 8 bytes for a cdecl call: esp off by 4, the DPC epilogue restored ebx/edi from the wrong slots and PMC_INTR_EN_0 was never re-enabled -- the loading screen ran at 2 fps."
+ },
+ {
+  "start": "0x000FA310",
+  "observed": true,
+  "note": "ICALL target seen at runtime"
+ },
+ {
+  "start": "0x000FA350",
+  "observed": true,
+  "note": "ICALL target seen at runtime"
+ },
+ {
+  "start": "0x00182CD8",
+  "observed": true,
+  "note": "ICALL target seen at runtime (XPP)"
+ },
+ {
+  "start": "0x00183525",
+  "observed": true,
+  "note": "ICALL target seen at runtime (XPP)"
+ },
+ {
+  "start": "0x001335E0",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00133950",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00133A50",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00133A90",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00133B30",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00133C20",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00133D50",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00133DB0",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00133E20",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00134BE0",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00134C50",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00134CC0",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00134CE0",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00134D00",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00134D60",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00134DA0",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00134E20",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x00134E70",
+  "observed": true,
+  "note": "D3D8 function-pointer target (vtable/state handler) seen as an unresolved ICALL at runtime"
+ },
+ {
+  "start": "0x000FA3C0",
+  "observed": true,
+  "note": "Worker-thread routine (PsCreateSystemThreadEx start address, the loader loop). Seeding 0x000FA350 beside it made the disassembler run that function through 0xFA3C0, so this one vanished and the loader thread resolved to nothing (794k failed ICALLs in 90 s)."
+ },
+ {
+  "start": "0x001007A0",
+  "observed": true,
+  "note": "Callback trampoline (jmp [0x417350] when set): an unresolved ICALL target at runtime after the loading screen."
+ },
+ {
+  "start": "0x000FE880",
+  "observed": true,
+  "note": "Called through a pointer when the Sofdec intro movie (media/movie/microsoft.sfd) starts; the disassembler had it inside the tail-merged bodies of 0xFE6D0..0xFE780. (0x000FE670 beside it is a deliberate jmp-to-self stub and stays unseeded.)"
+ },
+ {
+  "start": "0x0010D1D0",
+  "observed": true,
+  "note": "CRI mwPlyExecServer: walks the 8 movie-player handles and runs mwPlyExecSvrHndl (0x0010D0B0) for the playing ones. Reached only by a tail jmp from sub_0010D240 (the per-frame callback in slot 4), after 15 NOP padding bytes, so the disassembler never found it; without it the Sofdec decode server never ran and the intro movie stayed black."
+ },
+ {
+  "start": "0x0010CCC0",
+  "observed": true,
+  "note": "CRI player: called from 0x00112AE1 once the Sofdec decode server runs (RECOMP_STUB_LOG showed the stub reached)."
+ },
+ {
+  "start": "0x0010EEC8",
+  "observed": true,
+  "note": "CRI library code reached through a runtime-built vtable (call [vtbl+idx*4] at 0x00112AE3): appears as an imm32 in .text outside every detected function, and starts like a function."
+ },
+ {
+  "start": "0x00109260",
+  "observed": true,
+  "note": "CRI Sofdec module vtable entry (static vtables at 0x001CEAF0..0x001CEC98, dispatched by call [vtbl+idx*4] at 0x00112AE3); the disassembler left it undetected and the recompiler stubbed it, so the decoder chain stopped there."
+ },
+ {
+  "start": "0x0010BD80",
+  "observed": true,
+  "note": "CRI Sofdec module vtable entry (static vtables at 0x001CEAF0..0x001CEC98, dispatched by call [vtbl+idx*4] at 0x00112AE3); the disassembler left it undetected and the recompiler stubbed it, so the decoder chain stopped there."
+ },
+ {
+  "start": "0x00181800",
+  "observed": true,
+  "note": "Sofdec MPEG decoder entry: start of XBE code section PSGSFD_I, called through a pointer by the CRI player (ICALL \"Failed to resolve\" during the intro movie)."
+ },
+ {
+  "start": "0x001824C0",
+  "observed": true,
+  "note": "Sofdec MPEG decoder entry: start of XBE code section PSGSFD_P, called through a pointer by the CRI player (ICALL \"Failed to resolve\" during the intro movie)."
+ },
+ {
+  "start": "0x00108E40",
+  "observed": true,
+  "note": "CRI dispatcher target (stub reached)"
+ },
+ {
+  "start": "0x001086F0",
+  "observed": true,
+  "note": "CRI Sofdec decoder helper: 614 unresolved ICALLs during the intro movie, then a read at 0xFFFFFFFF crashed the title (its result was never produced)."
+ },
+ {
+  "start": "0x00180160",
+  "observed": true,
+  "note": "Sofdec MPEG decoder (PSGSFD00 section) entry reached through a pointer; unresolved ICALL during the intro movie."
+ },
+ {
+  "start": "0x0011BD80",
+  "observed": true,
+  "note": "Reached through a pointer while the intro movie decodes (6 unresolved ICALLs before the crash that followed)."
+ },
+ {
+  "start": "0x000FB190",
+  "observed": true,
+  "note": "Reached through a pointer during the intro movie (unresolved ICALL)."
+ },
+ {
+  "start": "0x001802E0",
+  "observed": true,
+  "note": "Sofdec decoder (PSGSFD00) entry reached through a pointer (unresolved ICALL)."
+ },
+ {
+  "start": "0x0003B5D0",
+  "observed": true,
+  "note": "Game code reached through a pointer after the intro (level loading / attract demo); unresolved ICALL."
+ },
+ {
+  "start": "0x00096E00",
+  "observed": true,
+  "note": "Game code reached through a pointer after the intro (level loading / attract demo); unresolved ICALL."
+ },
+ {
+  "start": "0x000994D0",
+  "observed": true,
+  "note": "Game code reached through a pointer after the intro (level loading / attract demo); unresolved ICALL."
+ },
+ {
+  "start": "0x000ACF30",
+  "observed": true,
+  "note": "Game code reached through a pointer after the intro (level loading / attract demo); unresolved ICALL."
+ },
+ {
+  "start": "0x000AE140",
+  "observed": true,
+  "note": "Game code reached through a pointer after the intro (level loading / attract demo); unresolved ICALL."
+ },
+ {
+  "start": "0x00025AE0",
+  "observed": true,
+  "note": "Game code reached through a pointer at stage start (round 1); unresolved ICALL, 42 calls before the game froze."
+ },
+ {
+  "start": "0x000253E0",
+  "observed": true,
+  "note": "Game code reached through a pointer at stage start (round 1); unresolved ICALL, 42 calls before the game froze."
+ },
+ {
+  "start": "0x000C67F0",
+  "observed": true,
+  "note": "Game code reached through a pointer during the attract demo (round 1 gameplay); unresolved ICALL before a crash ~7 min in."
+ },
+ {
+  "start": "0x000C2EA0",
+  "observed": true,
+  "note": "Game code reached through a pointer during the attract demo (round 1 gameplay); unresolved ICALL before a crash ~7 min in."
+ },
+ {
+  "start": "0x0003CDC0",
+  "observed": true,
+  "note": "Game code reached through a pointer during the attract demo (round 1 gameplay); unresolved ICALL before a crash ~7 min in."
+ },
+ {
+  "start": "0x00025630",
+  "observed": true,
+  "note": "Game code reached through a pointer during the attract demo (round 1 gameplay); unresolved ICALL before a crash ~7 min in."
+ },
+ {
+  "start": "0x00187334",
+  "observed": true,
+  "note": "XPP (USB) driver callback reached through a pointer right after the pad's SET_CONFIGURATION; unresolved, so the XID descriptor request never followed and the pad never enumerated (Start did nothing)."
+ },
+ {
+  "start": "0x00186A39",
+  "observed": true,
+  "note": "XPP pad-report completion routine, reached through a pointer once the pad enumerates (XID descriptor, capabilities and first GET_REPORT done); unresolved, the input reports never reached the title."
+ }
+]
