@@ -55,11 +55,19 @@ fetch() {
 
 if [ ! -x llvm-mingw/bin/x86_64-w64-mingw32-clang ]; then
   fetch "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VER/$LLVM_ASSET" "$LLVM_ASSET"
-  mkdir -p llvm-mingw
   case "$LLVM_ASSET" in
-    *.zip) rm -rf llvm-mingw.tmp && unzip -q "dl/$LLVM_ASSET" -d llvm-mingw.tmp \
-             && mv llvm-mingw.tmp/*/* llvm-mingw/ && rm -rf llvm-mingw.tmp ;;
-    *) tar -xf "dl/$LLVM_ASSET" -C llvm-mingw --strip-components 1 ;;
+    # Unpacked aside, then its one top folder renamed into place: a run cut
+    # off halfway leaves no llvm-mingw/ to be taken for a whole one. The
+    # rename is retried, as an antivirus still scanning the new files can
+    # refuse it for a moment.
+    *.zip) rm -rf llvm-mingw.tmp llvm-mingw && unzip -q "dl/$LLVM_ASSET" -d llvm-mingw.tmp
+           for i in 1 2 3 4 5 6 7 8 9 10; do
+             mv llvm-mingw.tmp/llvm-mingw-* llvm-mingw 2>/dev/null && break
+             sleep 3
+           done
+           [ -d llvm-mingw ] || { echo "cannot move llvm-mingw into place" >&2; exit 1; }
+           rm -rf llvm-mingw.tmp ;;
+    *) mkdir -p llvm-mingw && tar -xf "dl/$LLVM_ASSET" -C llvm-mingw --strip-components 1 ;;
   esac
 fi
 export PATH="$PREFIX/llvm-mingw/bin:$PATH"
