@@ -6,6 +6,12 @@ xboxrecomp : la branche
 [`blinx` de ce fork](https://github.com/magicseb/xboxrecomp/tree/blinx)
 (de [xenophobentx/xboxrecomp](https://github.com/xenophobentx/xboxrecomp)).
 
+**Installation facile :** téléchargez
+[BlinxSetup.exe](https://github.com/magicseb/blinx-recomp/releases/latest/download/BlinxSetup.exe)
+([releases](https://github.com/magicseb/blinx-recomp/releases)), lancez-le et
+donnez-lui votre ISO : il installe les outils, compile le jeu et crée un
+raccourci sur le Bureau.
+
 **Aucune donnée du jeu n'est fournie.** Il faut sa propre copie du disque ;
 le code C recompilé est régénéré localement depuis votre `default.xbe` et
 n'est pas dans ce dépôt.
