@@ -126,34 +126,144 @@ void sub_00127E20(void)
  * player and resumes the renderers.
  *
  * The Sofdec decoder does not run here: its player dispatches through
- * vtables and a table at 0x00452000 that is never filled. The movie is
- * decoded on the host instead (movie_player.c) and shown in place of the
- * guest frame, the game's flag stays 0 so StopMovie's own teardown never
- * runs, and these three answer from the host player. All cdecl. */
+ * vtables and a table at 0x00452000 that is never filled. These three are
+ * the title's own, step for step, with the CRI calls replaced by the host
+ * player (movie_player.c): PlayMovie still suspends the renderers and
+ * creates the YUY2 texture (0x00503458, its size at 0x0050342C/30), the
+ * update copies the latest decoded frame into it, and the title draws it
+ * itself (sub_000C18D0, while the flag is 1) -- full screen for the
+ * intros, behind the menu on the title screen. All cdecl. */
+#include <stdarg.h>
 #include "movie_player.h"
+
+extern void sub_000D3170(void), sub_00039860(void), sub_000AC130(void),
+            sub_000C1BD0(void), sub_0002DB50(void), sub_000F499B(void),
+            sub_00145BB6(void), sub_00134FF0(void), sub_00137140(void),
+            sub_000D3130(void), sub_00039790(void), sub_000ABFE0(void),
+            sub_000C1B30(void);
+
+#define MOVIE_ON    0x00503400u   /* 1 while a movie plays */
+#define MOVIE_TEX   0x00503458u   /* its IDirect3DTexture8 */
+#define MOVIE_W     0x0050342Cu
+#define MOVIE_H     0x00503430u
+#define MOVIE_SND   0x00503460u   /* handed to 0x000F499B around a movie */
+#define D3D_DEVICE  0x003EAB7Cu
+
+static inline uint32_t *gmem32(uint32_t va)
+{
+    return (uint32_t *)((uint8_t *)(uintptr_t)g_xbox_mem_offset + va);
+}
+
+/* Call a translated function with n stack arguments; its eax. The stack is
+ * put back as it was, whether the callee pops its arguments (stdcall, as the
+ * D3D ones here) or not. */
+static uint32_t guest_call(void (*fn)(void), int n, ...)
+{
+    uint32_t sp = g_esp, a[8];
+    va_list ap;
+    int i;
+
+    va_start(ap, n);
+    for (i = 0; i < n; i++)
+        a[i] = va_arg(ap, uint32_t);
+    va_end(ap);
+    for (i = n - 1; i >= 0; i--) {
+        g_esp -= 4;
+        *gmem32(g_esp) = a[i];
+    }
+    g_esp -= 4;
+    *gmem32(g_esp) = 0;   /* the return address, never used */
+    fn();
+    g_esp = sp;
+    return g_eax;
+}
+
+/* The movie texture's level 0, locked: its bits (a guest address) and
+ * pitch, through D3DTexture_LockRect (0x00134FF0). 0 when it fails. */
+static uint32_t movie_lock(uint32_t *pitch)
+{
+    uint32_t rect = g_esp - 0x40;   /* a D3DLOCKED_RECT below the frame */
+
+    g_esp -= 0x40;
+    guest_call(sub_00134FF0, 5, *gmem32(MOVIE_TEX), 0u, rect, 0u, 0u);
+    g_esp += 0x40;
+    *pitch = *gmem32(rect);
+    return *gmem32(rect + 4);
+}
 
 void sub_000C1620(void)
 {
-    uint8_t *ram = (uint8_t *)(uintptr_t)g_xbox_mem_offset;
-    uint32_t path = *(uint32_t *)(ram + g_esp + 4);
+    uint32_t path = *gmem32(g_esp + 4);
+    uint32_t w = *gmem32(g_esp + 12), h = *gmem32(g_esp + 16);
+    uint32_t loop = *gmem32(g_esp + 24);   /* mwPlyStartFnameLp, not ...Fname */
+    uint32_t bits, pitch, y, x;
 
-    /* 1, "already playing", is what the title's callers accept for a movie
-     * that cannot be played: the next update then reports it done. */
-    g_eax = movie_host_start((const char *)(ram + path)) == 0 ? 0 : 1;
+    if (*gmem32(MOVIE_ON) == 1) {
+        g_eax = 1;
+        g_esp += 4;
+        return;
+    }
+    guest_call(sub_000D3170, 0);
+    guest_call(sub_00039860, 0);
+    guest_call(sub_000AC130, 0);
+    guest_call(sub_000C1BD0, 0);
+    guest_call(sub_0002DB50, 0);
+    guest_call(sub_000F499B, 3, *gmem32(MOVIE_SND), 0x004BCE40u, 4u);
+    if ((int32_t)guest_call(sub_00145BB6, 8, *gmem32(D3D_DEVICE), w, h, 1u, 0u,
+                            0x24u /* D3DFMT_YUY2 */, 0u, MOVIE_TEX) < 0) {
+        g_eax = 0xFFFFFFFFu;
+        g_esp += 4;
+        return;
+    }
+    bits = movie_lock(&pitch);
+    if (bits)   /* black until the first frame, as the title fills it */
+        for (y = 0; y < h; y++)
+            for (x = 0; x < w / 2; x++)
+                *gmem32(bits + y * pitch + x * 4) = 0x80108010u;
+    *gmem32(MOVIE_W) = w;
+    *gmem32(MOVIE_H) = h;
+    if (!*gmem32(MOVIE_SND)
+            || movie_host_start((const char *)gmem32(path), w, h, loop != 0) != 0) {
+        guest_call(sub_00137140, 1, *gmem32(MOVIE_TEX));
+        g_eax = 0xFFFFFFFFu;
+        g_esp += 4;
+        return;
+    }
+    *gmem32(MOVIE_ON) = 1;
+    g_eax = 0;
     g_esp += 4;
 }
 
 void sub_000C1810(void)
 {
+    uint32_t bits, pitch;
+
+    if (*gmem32(MOVIE_ON) != 1) {
+        g_eax = 1;
+        g_esp += 4;
+        return;
+    }
+    bits = movie_lock(&pitch);
+    if (bits)
+        movie_host_take_frame((uint8_t *)gmem32(bits), pitch);
+    /* Played out: 1, the flag left at 1 for the caller's StopMovie, as the
+     * title does at PLAYEND. */
     g_eax = movie_host_playing() ? 0 : 1;
-    if (g_eax)
-        movie_host_stop();
     g_esp += 4;
 }
 
 void sub_000C17A0(void)
 {
-    movie_host_stop();
+    if (*gmem32(MOVIE_ON) == 1) {
+        movie_host_stop();
+        guest_call(sub_00137140, 1, *gmem32(MOVIE_TEX));
+        guest_call(sub_000F499B, 3, *gmem32(MOVIE_SND), 0x004BCE40u, 0x404u);
+        guest_call(sub_000D3130, 0);
+        guest_call(sub_00039790, 0);
+        guest_call(sub_000ABFE0, 0);
+        guest_call(sub_000C1B30, 0);
+        *gmem32(MOVIE_ON) = 0;
+    }
     g_esp += 4;
 }
 

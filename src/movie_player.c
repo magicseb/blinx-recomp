@@ -1,6 +1,6 @@
 /* The SFD movies on the host: ffmpeg decodes, waveOut plays the sound and
- * keeps the time, the D3D11 backend shows the frames. movie_player.h has
- * the why. */
+ * keeps the time, and the latest frame waits here for the game to copy it
+ * into its movie texture. movie_player.h has the why. */
 #include <windows.h>
 #include <mmsystem.h>
 #include <stdint.h>
@@ -14,15 +14,9 @@
 #define BLINX_GAME_DIR "game"
 #endif
 
-/* nv2a_pb_d3d11.c: the frame shown in place of the guest's at each flip,
- * copied; NULL gives the screen back. */
-extern void nv2a_pb_d3d11_movie_frame(const void *bgra, unsigned w, unsigned h);
-
-/* Every Blinx movie is 640x448 at 29.97; ffmpeg is told to deliver exactly
- * that, so a frame is a fixed number of bytes and its index is its time. */
-#define MV_W        640u
-#define MV_H        448u
-#define MV_FRAME    (MV_W * MV_H * 4u)
+/* ffmpeg delivers YUY2 (yuyv422, the title's texture format) at the size
+ * the title asked for and at 29.97, the rate of every Blinx movie: a frame
+ * is a fixed number of bytes and its index is its time. */
 #define MV_FPS      (30000.0 / 1001.0)
 #define AU_RATE     48000u
 #define AU_NBUF     6
@@ -36,7 +30,11 @@ static struct {
     HWAVEOUT         wo;
     WAVEHDR          hdr[AU_NBUF];
     char            *abuf[AU_NBUF];
-    uint8_t         *frame;
+    uint8_t         *frame;          /* the one being read */
+    uint8_t         *shown;          /* the latest one due, for the game */
+    unsigned         w, h, bytes;
+    SRWLOCK          lock;           /* shown, fresh */
+    int              fresh;          /* shown not taken yet */
     LARGE_INTEGER    qpf, t0;        /* t0: the start, for the silent clock */
     volatile LONG    stop;
     volatile LONG    video_done, audio_done;
@@ -131,7 +129,7 @@ static DWORD WINAPI video_thread(LPVOID unused)
     uint64_t index = 0;
     (void)unused;
 
-    while (!mv.stop && read_full(mv.vpipe, mv.frame, MV_FRAME) == MV_FRAME) {
+    while (!mv.stop && read_full(mv.vpipe, mv.frame, mv.bytes) == mv.bytes) {
         double due = (double)index / MV_FPS;
         double now;
         /* Sound that has not started yet holds the clock at 0: the first
@@ -142,7 +140,10 @@ static DWORD WINAPI video_thread(LPVOID unused)
         }
         if (mv.stop)
             break;
-        nv2a_pb_d3d11_movie_frame(mv.frame, MV_W, MV_H);
+        AcquireSRWLockExclusive(&mv.lock);
+        memcpy(mv.shown, mv.frame, mv.bytes);
+        mv.fresh = 1;
+        ReleaseSRWLockExclusive(&mv.lock);
         index++;
     }
     fprintf(stderr, "[movie] video: %llu frames\n", (unsigned long long)index);
@@ -204,19 +205,34 @@ static DWORD WINAPI audio_thread(LPVOID unused)
     return 0;
 }
 
-int movie_host_start(const char *guest_path)
+/* A looping movie, to start over when it ends: what it was started with. */
+static char     s_loop_path[MAX_PATH];
+static unsigned s_loop_w, s_loop_h;
+static int      s_loop;
+
+int movie_host_start(const char *guest_path, unsigned w, unsigned h, int loop)
 {
     char host[MAX_PATH], args[1024];
     WAVEFORMATEX wf;
-    const char *p = guest_path;
+    const char *p;
     int i;
 
     movie_host_stop();
+    if (guest_path != s_loop_path)
+        snprintf(s_loop_path, sizeof s_loop_path, "%s", guest_path);
+    s_loop_w = w;
+    s_loop_h = h;
+    s_loop = loop;
+    p = s_loop_path;
     if ((p[0] == 'D' || p[0] == 'd') && p[1] == ':')
         p += 2;
     while (*p == '\\' || *p == '/')
         p++;
     snprintf(host, sizeof host, "%s\\%s", BLINX_GAME_DIR, p);
+    if (getenv("BLINX_NO_MOVIES")) {   /* straight to the title, for profiling */
+        fprintf(stderr, "[movie] %s: BLINX_NO_MOVIES, skipped\n", host);
+        return -1;
+    }
     if (GetFileAttributesA(host) == INVALID_FILE_ATTRIBUTES) {
         fprintf(stderr, "[movie] %s: no such file, skipped\n", host);
         return -1;
@@ -225,15 +241,22 @@ int movie_host_start(const char *guest_path)
     memset(&mv, 0, sizeof mv);
     QueryPerformanceFrequency(&mv.qpf);
     QueryPerformanceCounter(&mv.t0);
-    mv.frame = (uint8_t *)malloc(MV_FRAME);
+    InitializeSRWLock(&mv.lock);
+    mv.w = w & ~1u;
+    mv.h = h;
+    mv.bytes = mv.w * mv.h * 2u;
+    mv.frame = (uint8_t *)malloc(mv.bytes ? mv.bytes : 1);
+    mv.shown = (uint8_t *)malloc(mv.bytes ? mv.bytes : 1);
     snprintf(args, sizeof args,
-             "-nostdin -v quiet -i \"%s\" -an -f rawvideo -pix_fmt bgra"
-             " -s %ux%u -r 30000/1001 pipe:1", host, MV_W, MV_H);
-    mv.vproc = spawn(args, &mv.vpipe);
-    if (!mv.frame || !mv.vproc) {
+             "-nostdin -v quiet -i \"%s\" -an -f rawvideo -pix_fmt yuyv422"
+             " -s %ux%u -r 30000/1001 pipe:1", host, mv.w, mv.h);
+    if (mv.bytes && mv.frame && mv.shown)
+        mv.vproc = spawn(args, &mv.vpipe);
+    if (!mv.vproc) {
         fprintf(stderr, "[movie] cannot run %s: %s skipped\n", ffmpeg_exe(), host);
         free(mv.frame);
-        mv.frame = NULL;
+        free(mv.shown);
+        memset(&mv, 0, sizeof mv);
         return -1;
     }
 
@@ -263,13 +286,38 @@ int movie_host_start(const char *guest_path)
     }
     mv.vthread = CreateThread(NULL, 0, video_thread, NULL, 0, NULL);
     mv.active = 1;
-    fprintf(stderr, "[movie] playing %s\n", host);
+    fprintf(stderr, "[movie] playing %s (%ux%u)\n", host, mv.w, mv.h);
     return 0;
+}
+
+int movie_host_take_frame(uint8_t *dst, unsigned pitch)
+{
+    unsigned y;
+    int got;
+
+    if (!mv.active)
+        return 0;
+    AcquireSRWLockExclusive(&mv.lock);
+    got = mv.fresh;
+    if (got)
+        for (y = 0; y < mv.h; y++)
+            memcpy(dst + (size_t)y * pitch, mv.shown + (size_t)y * mv.w * 2u, mv.w * 2u);
+    mv.fresh = 0;
+    ReleaseSRWLockExclusive(&mv.lock);
+    return got;
 }
 
 int movie_host_playing(void)
 {
-    return mv.active && !(mv.video_done && mv.audio_done);
+    if (!mv.active)
+        return 0;
+    if (!(mv.video_done && mv.audio_done))
+        return 1;
+    /* Two fresh decoders at each pass, rather than ffmpeg's -stream_loop:
+     * sound and picture start over together, and never drift apart. */
+    if (s_loop)
+        return movie_host_start(s_loop_path, s_loop_w, s_loop_h, 1) == 0;
+    return 0;
 }
 
 void movie_host_stop(void)
@@ -306,7 +354,7 @@ void movie_host_stop(void)
     if (mv.vproc) CloseHandle(mv.vproc);
     if (mv.aproc) CloseHandle(mv.aproc);
     free(mv.frame);
-    nv2a_pb_d3d11_movie_frame(NULL, 0, 0);
+    free(mv.shown);
     memset(&mv, 0, sizeof mv);
     fprintf(stderr, "[movie] stopped\n");
 }
