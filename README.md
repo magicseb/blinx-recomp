@@ -2,8 +2,9 @@
 
 Portage PC de *Blinx: The Time Sweeper* (Xbox, version PAL), par
 recompilation statique du code x86 de `default.xbe` en C, avec le toolkit
-[xboxrecomp](https://github.com/xenophobentx/xboxrecomp) (branche `blinx`
-de ce fork).
+xboxrecomp : la branche
+[`blinx` de ce fork](https://github.com/magicseb/xboxrecomp/tree/blinx)
+(de [xenophobentx/xboxrecomp](https://github.com/xenophobentx/xboxrecomp)).
 
 **Aucune donnée du jeu n'est fournie.** Il faut sa propre copie du disque ;
 le code C recompilé est régénéré localement depuis votre `default.xbe` et
@@ -31,7 +32,7 @@ Prérequis : Python avec `capstone` (`python -m pip install capstone`),
 ```
 XBOX-PROJECT/
   BLINX/          ce dépôt
-  xboxrecomp/     le toolkit, branche blinx
+  xboxrecomp/     le toolkit : git clone -b blinx https://github.com/magicseb/xboxrecomp
   deps/           llvm-mingw, SDL2, Vulkan, glslang (tools/win/fetch-deps.sh)
 ```
 
