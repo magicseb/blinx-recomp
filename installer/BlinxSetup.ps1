@@ -31,7 +31,17 @@ $script:LogFile = $null
 
 function Say([string]$msg, [string]$color = 'Gray') {
     Write-Host $msg -ForegroundColor $color
-    if ($script:LogFile) { Add-Content -Path $script:LogFile -Value $msg -Encoding UTF8 }
+    # Opened, written and closed at each line, sharing it with any reader;
+    # a line that cannot be written (the file held by another program) is
+    # lost from the log, never fatal.
+    if ($script:LogFile) {
+        try {
+            $fs = New-Object System.IO.FileStream $script:LogFile, 'Append', 'Write', 'ReadWrite'
+            $sw = New-Object System.IO.StreamWriter $fs, (New-Object System.Text.UTF8Encoding $false)
+            $sw.WriteLine($msg)
+            $sw.Dispose()
+        } catch { }
+    }
 }
 function Step([string]$msg) { Say ''; Say "==> $msg" 'Green' }
 function Fail([string]$msg) {
