@@ -26,6 +26,9 @@
 
 /* xboxrecomp runtime headers */
 #include <xbox/xboxrecomp.h>
+#ifdef RECOMP_ENV_HAVE_ENHANCE_KEYS
+#include "enhance.h"     /* xbox_enhance_init: render.scale and the present options */
+#endif
 #include "usb/ohci.h"               /* xbox_OhciInit: the emulated pads */
 #if defined(XBOXRECOMP_WIN_VULKAN)
 #include "video/video_player.h"     /* xbox_HostWindowMain, xbox_HostWindowSetTitle */
@@ -684,10 +687,20 @@ int main(int argc, char **argv)
      * demo at about a frame a second here. The Direct3D 11 backend is the
      * host's GPU. */
     env_default("RECOMP_PB_BACKEND", "d3d11");
+    /* Internal resolution 2x (1280x960) and a 960x720 window: the 640x480
+     * frame drawn larger instead of shown at its native size. enhance.toml
+     * or RECOMP_RENDER_SCALE / RECOMP_WINDOW_SCALE override them. */
+    env_default("RECOMP_RENDER_SCALE", "2");
+    env_default("RECOMP_WINDOW_SCALE", "1.5");
 #endif
 
     /* Read the environment once, before anything asks recomp_env(). */
     recomp_env_init();
+#ifdef RECOMP_ENV_HAVE_ENHANCE_KEYS
+    /* enhance.toml beside the executable; reads the environment, so after
+     * recomp_env_init and every default above. */
+    xbox_enhance_init(".", NULL);
+#endif
 
     if (getenv("BLINX_DIAG_TABLE"))
         CloseHandle(CreateThread(NULL, 0, diag_table_thread, NULL, 0, NULL));

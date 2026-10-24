@@ -50,6 +50,12 @@ set(XBOXRECOMP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../xboxrecomp" CACHE PATH
 
 # Add xboxrecomp as a subdirectory -- this builds all 6 runtime libraries
 # and provides the 'xboxrecomp' umbrella target to link against.
+# The toolkit's enhancements layer: render.scale (internal resolution) and the
+# present options, from enhance.toml beside the executable and RECOMP_* over
+# it. src/main.c sets the defaults.
+set(XBOXRECOMP_ENHANCE ON CACHE BOOL
+    "Build the enhancements layer (enhance.toml, RECOMP_RENDER_SCALE, ...)" FORCE)
+
 add_subdirectory(${XBOXRECOMP_DIR} ${CMAKE_BINARY_DIR}/xboxrecomp)
 
 # ── Recompiled game executable ──────────────────────────────────
@@ -67,6 +73,7 @@ file(GLOB RECOMP_GEN_SOURCES CONFIGURE_DEPENDS "src/recomp/gen/*.c")
 set(GAME_SOURCES
     src/main.c
     src/recomp_manual.c
+    src/movie_player.c   # the SFD movies, decoded by ffmpeg on the host
     # Add game-specific sources here, e.g.:
     # src/asset_loader.c
     # src/custom_renderer.c

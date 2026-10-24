@@ -115,24 +115,45 @@ void sub_00127E20(void)
     g_esp += 4;
 }
 
-/* -- Intro movies: skipped ----------------------------------------------- */
+/* -- Movies: played on the host ------------------------------------------- */
 
-/* sub_000C1620 is the title's PlayMovie(name, ...): it builds
- * media\movie\%s.sfd, creates a CRI Sofdec player (mwPlyStartFnameLp,
- * 0x00106830) and sets the "movie active" flag at 0x00503400 to 1. The
- * per-frame update (sub_000C1810) then polls mwSfdGetStat until PLAYEND (3)
- * and returns 1 ("done") at once whenever that flag is not 1.
+/* sub_000C1620 is the title's PlayMovie(path, ...), path being
+ * media\movie\%s.sfd: it suspends the game's renderers, creates a CRI
+ * Sofdec player (mwPlyStartFnameLp, 0x00106830) and sets the "movie active"
+ * flag at 0x00503400 to 1. The per-frame update (sub_000C1810) polls
+ * mwSfdGetStat and returns 0 while playing, 1 at PLAYEND or whenever that
+ * flag is not 1, -1 on an error; StopMovie (sub_000C17A0) destroys the
+ * player and resumes the renderers.
  *
- * The Sofdec decoder does not run here yet: its player dispatches through
- * vtables and a table at 0x00452000 that is never filled, so the decode
- * server calls null and data pointers and the I-frame decoder crashes on a
- * garbage bitstream pointer. Until that is understood, the movies are
- * skipped: PlayMovie returns 1 without starting anything, the flag stays
- * at 0, and the next update reports the movie finished. cdecl, caller
- * cleans the arguments. */
+ * The Sofdec decoder does not run here: its player dispatches through
+ * vtables and a table at 0x00452000 that is never filled. The movie is
+ * decoded on the host instead (movie_player.c) and shown in place of the
+ * guest frame, the game's flag stays 0 so StopMovie's own teardown never
+ * runs, and these three answer from the host player. All cdecl. */
+#include "movie_player.h"
+
 void sub_000C1620(void)
 {
-    g_eax = 1;
+    uint8_t *ram = (uint8_t *)(uintptr_t)g_xbox_mem_offset;
+    uint32_t path = *(uint32_t *)(ram + g_esp + 4);
+
+    /* 1, "already playing", is what the title's callers accept for a movie
+     * that cannot be played: the next update then reports it done. */
+    g_eax = movie_host_start((const char *)(ram + path)) == 0 ? 0 : 1;
+    g_esp += 4;
+}
+
+void sub_000C1810(void)
+{
+    g_eax = movie_host_playing() ? 0 : 1;
+    if (g_eax)
+        movie_host_stop();
+    g_esp += 4;
+}
+
+void sub_000C17A0(void)
+{
+    movie_host_stop();
     g_esp += 4;
 }
 

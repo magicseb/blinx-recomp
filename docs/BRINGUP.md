@@ -62,12 +62,17 @@ avec `RECOMP_STUB_LOG=1`. Chaque adresse va dans le fichier de graines, puis
 - `sub_00127E20` memmove du CRT (corps de tous les memcpy) : ses tables de
   sauts internes ne sont pas suivies ; lifté, chaque copie perdait son reste
   de 1 à 3 octets.
-- `sub_000C1620` PlayMovie du titre : rendu no-op (retourne 1 sans poser le
-  flag `0x00503400`), l'update `sub_000C1810` considère alors la vidéo finie.
-  Les vidéos Sofdec (`media/movie/*.sfd`) ne sont donc pas jouées : leur
-  décodeur appelle via une table à `0x00452000` jamais remplie et des
-  pointeurs nuls, puis plante sur un pointeur de flux poubelle. À reprendre
-  (ou lire les .sfd côté hôte).
+- Vidéos Sofdec (`media/movie/*.sfd`) : le décodeur CRI ne tourne pas (il
+  appelle via une table à `0x00452000` jamais remplie). Elles sont lues côté
+  hôte par `src/movie_player.c` : ffmpeg (PATH, ou `BLINX_FFMPEG`) décode la
+  vidéo en BGRA 640×448 et le son en PCM 48 kHz, waveOut joue le son et sert
+  d'horloge, et chaque image passe par `nv2a_pb_d3d11_movie_frame()` du
+  toolkit, présentée à la place de l'image du jeu. PlayMovie
+  (`sub_000C1620`), l'update (`sub_000C1810`) et StopMovie (`sub_000C17A0`)
+  répondent depuis ce lecteur ; le flag `0x00503400` reste à 0. Start passe
+  la vidéo (le jeu appelle StopMovie). Sans ffmpeg, les vidéos sont sautées.
+  Les .sfd sans piste son (`end_a01`, `pr_a01` : son dans des .adx/.aix à
+  part) sont cadencés sur l'horloge de l'hôte.
 
 ## Réglages dans `src/main.c`
 
@@ -144,9 +149,6 @@ le jeu est fluide.
 
 ## Pistes suivantes
 
-1. Manette : `RECOMP_USB=1` est actif ; vérifier que Start lance le jeu.
-2. Son : les voix APU observées restent à `pos=1/31` ; vérifier la sortie
-   audio pendant la démo (ADX `round1.adx` est bien lu en flux).
-3. Vidéos Sofdec : comprendre qui doit remplir la table `0x00452000`.
-4. Continuer à semer les cibles `Failed to resolve` au fil des runs (boucle
+1. Build Vulkan (la superposition des vidéos n'existe qu'en D3D11).
+2. Continuer à semer les cibles `Failed to resolve` au fil des runs (boucle
    `RECOMP_ICALL_FEEDBACK` + `python -m tools.recomp.icall_feedback merge`).
