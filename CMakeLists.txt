@@ -108,6 +108,9 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/recomp
     ${XBOXRECOMP_DIR}/include
+    # recomp_manual.c and main.c: xbox_memory_layout.h (RECOMP_TLS) and the
+    # kernel's own headers.
+    ${XBOXRECOMP_DIR}/src/kernel
 )
 
 if(XBOXRECOMP_WIN_VULKAN)
