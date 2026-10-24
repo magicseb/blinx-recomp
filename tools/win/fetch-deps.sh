@@ -36,7 +36,22 @@ wp() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf 
 
 mkdir -p "$PREFIX/dl"
 cd "$PREFIX"
-fetch() { [ -s "dl/$2" ] || curl -fL --retry 3 -o "dl/$2" "$1"; }
+# Into a .part file, renamed once whole: a download cut off (the network
+# dropped) is resumed by the next run, never taken for the archive.
+fetch() {
+  [ -s "dl/$2" ] && return 0
+  local i
+  for i in 1 2 3 4 5; do
+    if curl -fL --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 30 \
+         -C - -o "dl/$2.part" "$1"; then
+      mv -f "dl/$2.part" "dl/$2"
+      return 0
+    fi
+    echo "download of $2 interrupted (attempt $i of 5), resuming" >&2
+    sleep 5
+  done
+  return 1
+}
 
 if [ ! -x llvm-mingw/bin/x86_64-w64-mingw32-clang ]; then
   fetch "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VER/$LLVM_ASSET" "$LLVM_ASSET"
