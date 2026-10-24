@@ -81,6 +81,9 @@ function Run-Logged([string]$exe, [string[]]$argv, [string]$cwd, [string]$log) {
     $err = "$log.err"
     $p = Start-Process -FilePath $exe -ArgumentList $argv -WorkingDirectory $cwd `
         -RedirectStandardOutput $log -RedirectStandardError $err -NoNewWindow -PassThru
+    # Read now: without a handle taken while the process runs, ExitCode is
+    # $null once it has ended (Windows PowerShell's Start-Process).
+    $null = $p.Handle
     $t0 = Get-Date
     while (-not $p.HasExited) {
         Start-Sleep -Seconds 2
