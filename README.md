@@ -57,6 +57,12 @@ cd build/mingw && ./blinx_recomp.exe
 - Manette : comme sur Xbox ; Select+Start ouvre les réglages.
 - Clavier : F1 ouvre les réglages.
 
+## Licence
+
+Le code de ce dépôt est sous licence [MIT](LICENSE). Elle ne couvre pas le
+jeu : *Blinx: The Time Sweeper* et ses données appartiennent à leurs
+ayants droit.
+
 ## Remerciements
 
 Le toolkit xboxrecomp (sp00nz, xenophobentx et ses contributeurs), Takedawn
